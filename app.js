@@ -16,8 +16,9 @@ app.use('/api/v1', items);
 // app.use('/api/v1', users);
 
 // Server
-// app.listen(3000, '0.0.0.0', () => {
-//   console.log('Backend running on http://192.168.1.4:3000');
+// app.listen(4000, '172.34.12.67', () => {
+//   console.log("Backend running at http://172.34.12.67:4000");
 // });
+
 
 module.exports = app

@@ -15,10 +15,4 @@ app.use('/images', express.static(path.join(__dirname, 'images')))
 app.use('/api/v1', items);
 // app.use('/api/v1', users);
 
-// Server
-// app.listen(4000, '172.34.12.67', () => {
-//   console.log("Backend running at http://172.34.12.67:4000");
-// });
-
-
 module.exports = app

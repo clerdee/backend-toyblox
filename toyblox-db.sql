@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 08, 2025 at 05:30 PM
+-- Generation Time: Jul 09, 2025 at 09:36 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.1.25
 
@@ -16,14 +16,12 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
---
 -- Database: `toyblox_db`
 --
 
 -- --------------------------------------------------------
 
 -- Table structure for table `customers`
---
 
 CREATE TABLE `customers` (
   `id` int(11) NOT NULL,
@@ -40,14 +38,25 @@ CREATE TABLE `customers` (
 -- --------------------------------------------------------
 
 -- Table structure for table `item`
---
 
 CREATE TABLE `item` (
   `item_id` int(11) NOT NULL,
   `description` varchar(255) NOT NULL,
   `cost_price` decimal(10,2) NOT NULL,
   `sell_price` decimal(10,2) NOT NULL,
-  `image` varchar(255) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+-- Table structure for table `item_images`
+
+CREATE TABLE `item_images` (
+  `id` int(11) NOT NULL,
+  `item_id` int(11) DEFAULT NULL,
+  `image_path` varchar(255) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `deleted_at` datetime DEFAULT NULL
@@ -56,7 +65,6 @@ CREATE TABLE `item` (
 -- --------------------------------------------------------
 
 -- Table structure for table `stock`
---
 
 CREATE TABLE `stock` (
   `stock_id` int(11) NOT NULL,
@@ -67,7 +75,6 @@ CREATE TABLE `stock` (
 -- --------------------------------------------------------
 
 -- Table structure for table `users`
---
 
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
@@ -82,9 +89,9 @@ CREATE TABLE `users` (
   `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Indexes for dumped tables
---
+-- --------------------------------------------------------
+
+-- Indexes
 
 ALTER TABLE `customers`
   ADD PRIMARY KEY (`id`),
@@ -92,6 +99,10 @@ ALTER TABLE `customers`
 
 ALTER TABLE `item`
   ADD PRIMARY KEY (`item_id`);
+
+ALTER TABLE `item_images`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `item_id` (`item_id`);
 
 ALTER TABLE `stock`
   ADD PRIMARY KEY (`stock_id`),
@@ -101,28 +112,34 @@ ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `email` (`email`);
 
---
--- AUTO_INCREMENT for dumped tables
---
+-- --------------------------------------------------------
+
+-- AUTO_INCREMENT for tables
 
 ALTER TABLE `customers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `item`
-  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+
+ALTER TABLE `item_images`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 ALTER TABLE `stock`
-  MODIFY `stock_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `stock_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
---
--- Constraints for dumped tables
---
+-- --------------------------------------------------------
+
+-- Constraints
 
 ALTER TABLE `customers`
   ADD CONSTRAINT `customers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+ALTER TABLE `item_images`
+  ADD CONSTRAINT `item_images_ibfk_1` FOREIGN KEY (`item_id`) REFERENCES `item` (`item_id`) ON DELETE CASCADE;
 
 ALTER TABLE `stock`
   ADD CONSTRAINT `stock_ibfk_1` FOREIGN KEY (`item_id`) REFERENCES `item` (`item_id`) ON DELETE CASCADE;

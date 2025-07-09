@@ -1,5 +1,6 @@
 const connection = require('../config/database');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 exports.getAllUsers = (req, res) => {
     const sql = `
@@ -176,3 +177,24 @@ exports.deleteUser = (req, res) => {
         return res.status(500).json({ error: 'Unexpected error occurred.' });
     }
 }
+
+exports.loginUser = (req, res) => {
+  const { email, password } = req.body;
+
+  const sql = 'SELECT * FROM users WHERE email = ?';
+  connection.execute(sql, [email], (err, results) => {
+    if (err || results.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const user = results[0];
+
+    bcrypt.compare(password, user.password, (err, isMatch) => {
+      if (!isMatch) return res.status(401).json({ error: 'Invalid password' });
+
+      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
+        expiresIn: '1d'
+      });
+
+      res.json({ token, user: { id: user.id, f_name: user.f_name, l_name: user.l_name, email: user.email, role: user.role } });
+    });
+  });
+};

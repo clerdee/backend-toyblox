@@ -86,6 +86,13 @@ exports.createItem = (req, res) => {
                 const imageSql = 'INSERT INTO item_images (item_id, image_path) VALUES ?';
                 const imageValues = files.map(file => [itemId, file.path.replace(/\\/g, "/")]);
 
+                // const imageValues = files.map(file => [itemId, `/images/${file.filename}`]);
+
+                // const imageValues = files.map(file => {
+                // const cleanPath = `/images/${file.filename}`;
+                // return [itemId, cleanPath];
+                // });
+
                 connection.query(imageSql, [imageValues], (imgErr) => {
                     if (imgErr) return res.status(500).json({ error: 'Error inserting images', details: imgErr.message });
                     return res.status(201).json({ success: true, message: 'Item, stock, and images inserted successfully' });
@@ -126,6 +133,14 @@ exports.updateItem = (req, res) => {
 
                         const insertNewImages = 'INSERT INTO item_images (item_id, image_path) VALUES ?';
                         const imageValues = files.map(file => [id, file.path.replace(/\\/g, "/")]);
+
+                        // const imageValues = files.map(file => [id, `/images/${file.filename}`]);
+
+                        // const imageValues = files.map(file => {
+                        // const cleanPath = `/images/${file.filename}`;
+                        // return [itemId, cleanPath];
+                        // });
+
                         connection.query(insertNewImages, [imageValues], (imgErr) => {
                             if (imgErr) return res.status(500).json({ error: 'Error inserting new images', details: imgErr });
 

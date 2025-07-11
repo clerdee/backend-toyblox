@@ -12,6 +12,7 @@ app.listen(port, () => {
 
 const items = require('./routes/item')
 const users = require('./routes/user')
+const stocks = require('./routes/stock');
 
 app.use(cors());
 app.use(express.json());
@@ -22,5 +23,6 @@ app.use('/images', express.static(path.join(__dirname, 'images')))
 
 app.use('/api/v1', items);
 app.use('/api/v1', users);
+app.use('/api/v1', stocks);
 
 module.exports = app

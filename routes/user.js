@@ -15,39 +15,23 @@ const {
     verifyEmail
 } = userController;
 
-// ✅ Public route: Email verification (no token required)
-router.get('/verify', verifyEmail);
-
-// 🔐 Protected routes: Only logged-in users (with appropriate roles)
-router.get('/users', verifyToken, authorizeRoles('admin'), getAllUsers);
-router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'), getSingleUser);
-
 // 🔑 Auth routes
 router.post('/login', loginUser);
+router.get('/verify', verifyEmail);
 
 // 🧾 User management
-router.post('/users', upload.single('profile_picture'), createUser);
-router.put('/users/:id', upload.single('profile_picture'), updateUser);
-router.delete('/users/:id', deleteUser);
+router.post('/users', upload.single('profile_picture'), createUser); // Public Registration
+// router.put('/users/:id', upload.single('profile_picture'), updateUser);
+
+// 🔐 Protected routes: Only logged-in users (with appropriate roles)
+// router.delete('/users/:id', deleteUser);
+// router.get('/users', verifyToken, authorizeRoles('admin'), getAllUsers);
+// router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'), getSingleUser);
+
+// Protected: Admin/User Access
+router.get('/users', verifyToken, authorizeRoles('admin'), getAllUsers);
+router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'), getSingleUser);
+router.put('/users/:id', verifyToken, authorizeRoles('admin', 'user'), upload.single('profile_picture'), updateUser);
+router.delete('/users/:id', verifyToken, authorizeRoles('admin'), deleteUser);
 
 module.exports = router;
-
-// lumang code
-// const {
-//     getAllUsers,
-//     getSingleUser,
-//     createUser,
-//     updateUser,
-//     deleteUser,
-//     loginUser,
-// } = require('../controllers/user');
-
-// lumang code
-// router.get('/users', verifyToken, authorizeRoles('admin'));
-// router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'));
-// router.post('/login', loginUser);
-// router.get('/users', getAllUsers);
-// router.get('/users/:id', getSingleUser);
-// router.post('/users', upload.single('profile_picture'), createUser);
-// router.put('/users/:id', upload.single('profile_picture'), updateUser);
-// router.delete('/users/:id', deleteUser);

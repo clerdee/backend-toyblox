@@ -31,23 +31,24 @@ exports.getAllUsers = (req, res) => {
         console.log(error);
         return res.status(500).json({ error: 'Server error' });
     }
-}
+};
 
 exports.getSingleUser = (req, res) => {
     const sql = `
         SELECT 
-            id,
-            f_name,
-            l_name,
-            email,
-            password,
-            profile_picture,
-            role,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM users
-        WHERE id = ? AND deleted_at IS NULL
+            u.id,
+            u.f_name,
+            u.l_name,
+            u.email,
+            u.profile_picture,
+            u.role,
+            c.address,
+            c.postal_code,
+            c.country,
+            c.phone_number
+        FROM users u
+        LEFT JOIN customers c ON u.id = c.user_id
+        WHERE u.id = ? AND u.deleted_at IS NULL
     `;
     const values = [parseInt(req.params.id)];
 
@@ -62,60 +63,57 @@ exports.getSingleUser = (req, res) => {
                 return res.status(404).json({ error: 'User not found or has been deleted.' });
             }
 
-            return res.status(200).json({ user: result[0] });
+            return res.status(200).json({ data: result[0] });
         });
     } catch (error) {
         console.error('Unhandled error:', error);
         return res.status(500).json({ error: 'Unexpected error occurred.' });
     }
-}
+};
 
 exports.createUser = async (req, res) => {
   const { f_name, l_name, email, password } = req.body;
   const profile_picture = req.file ? req.file.filename : null;
-  const role = "user";
+  const role = 'user';
 
   if (!f_name || !l_name || !email || !password) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
+    // Check if email already exists
+    const [existingUser] = await connection.promise().execute(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(409).json({ error: 'Email already exists. Please use a different email.' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const userSql = `
-      INSERT INTO users (f_name, l_name, email, password, role, profile_picture)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-    const userValues = [f_name, l_name, email, hashedPassword, role, profile_picture];
+    // Insert user
+    const [userResult] = await connection.promise().execute(
+      `INSERT INTO users (f_name, l_name, email, password, role, profile_picture)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [f_name, l_name, email, hashedPassword, role, profile_picture]
+    );
 
-    connection.execute(userSql, userValues, async (err, result) => {
-      if (err) {
-        console.error('User Insert Error:', err);
-        return res.status(500).json({ error: 'Error creating user' });
-      }
+    const userId = userResult.insertId;
 
-      const userId = result.insertId;
+    // Insert blank customer profile
+    await connection.promise().execute(
+      `INSERT INTO customers (user_id, address, postal_code, country, phone_number)
+       VALUES (?, '', '', '', '')`,
+      [userId]
+    );
 
-      const customerSql = `
-        INSERT INTO customers (user_id, address, postal_code, country, phone_number)
-        VALUES (?, '', '', '', '')
-      `;
-      connection.execute(customerSql, [userId], async (err, result2) => {
-        if (err) {
-          console.error('Customer Insert Error:', err);
-          return res.status(500).json({ error: 'User created, but error creating customer profile' });
-        }
+    // Generate verification and auth token
+    const verifyToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const authToken = jwt.sign({ id: userId, role }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // Generate verification token
-        const verifyToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-        const verifyUrl = `http://localhost:4000/api/v1/users/verify?token=${verifyToken}`;
-
-    // AFTER the customer profile is created, and BEFORE sending the email
-    const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-      expiresIn: '24h'
-    });
-
+    // Send verification email
     await mailer.sendMail({
       from: '"ToyBlox PH" <toyblox@toys.com.ph>',
       to: email,
@@ -123,30 +121,28 @@ exports.createUser = async (req, res) => {
       html: `
         <h3>Hi ${f_name},</h3>
         <p>Welcome to ToyBlox! Please verify your account:</p>
-        <a href="http://localhost:4000/api/v1/verify?token=${token}">Verify Account</a>
+        <a href="http://localhost:4000/api/v1/users/verify?token=${verifyToken}">Verify Account</a>
       `
     });
 
-        return res.status(201).json({
-          message: 'User created. Please verify your email.',
-          token, // 👈 include the token
-          user: {
-            id: userId,
-            f_name,
-            l_name,
-            email,
-            role
-          }
-        });
-
-      });
+    // Respond with success
+    return res.status(201).json({
+      message: 'User created. Please verify your email.',
+      token: authToken,
+      user: {
+        id: userId,
+        f_name,
+        l_name,
+        email,
+        role
+      }
     });
+
   } catch (error) {
-    console.error('Unhandled Error:', error);
-    return res.status(500).json({ error: 'Unexpected error occurred.' });
+    console.error('CreateUser Error:', error);
+    return res.status(500).json({ error: 'Server error while creating user.' });
   }
 };
-
 
 exports.updateUser = async (req, res) => {
     const { f_name, l_name, email, password } = req.body;
@@ -159,7 +155,6 @@ exports.updateUser = async (req, res) => {
     }
 
     try {
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         const sql = `
             UPDATE users
@@ -190,7 +185,7 @@ exports.updateUser = async (req, res) => {
         console.error('Unhandled error:', error);
         return res.status(500).json({ error: 'Unexpected error occurred.' });
     }
-}
+};
 
 exports.deleteUser = (req, res) => {
     const userId = parseInt(req.params.id);
@@ -217,7 +212,7 @@ exports.deleteUser = (req, res) => {
         console.error('Unhandled error:', error);
         return res.status(500).json({ error: 'Unexpected error occurred.' });
     }
-}
+};
 
 exports.loginUser = (req, res) => {
   const { email, password } = req.body;
@@ -253,7 +248,6 @@ exports.loginUser = (req, res) => {
   });
 };
 
-
 exports.verifyEmail = (req, res) => {
   const token = req.query.token;
   if (!token) return res.status(400).send('Missing token');
@@ -267,7 +261,6 @@ exports.verifyEmail = (req, res) => {
     connection.execute(updateSql, [userId], (err, result) => {
       if (err) return res.status(500).send('Database error during verification');
 
-      // Get user info after verification to send in redirect
       const userSql = `SELECT id, f_name, l_name, email, role FROM users WHERE id = ?`;
       connection.execute(userSql, [userId], (err2, results) => {
         if (err2 || results.length === 0) return res.status(500).send('User fetch failed');
@@ -278,11 +271,10 @@ exports.verifyEmail = (req, res) => {
           expiresIn: '1d',
         });
 
-        // Redirect to home with token + user data encoded in URL (you’ll catch this in JS)
         const redirectUrl = `http://localhost:4000/home.html?token=${authToken}&id=${user.id}&name=${encodeURIComponent(user.f_name)}`;
+        // const redirectUrl = `http://localhost:4000/profile.html?token=${authToken}&id=${user.id}&name=${encodeURIComponent(user.f_name)}`;
         return res.redirect(redirectUrl);
       });
     });
   });
 };
-

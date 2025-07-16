@@ -1,7 +1,8 @@
+// backend/controllers/user.js
 const connection = require('../config/database');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const mailer = require('../config/mailer');
+const mailer = require('../config/mailer'); 
 
 exports.getAllUsers = (req, res) => {
     const sql = `
@@ -13,6 +14,7 @@ exports.getAllUsers = (req, res) => {
         password,
         profile_picture,
         role,
+        token,
         created_at,
         updated_at,
         deleted_at
@@ -93,7 +95,7 @@ exports.createUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user
+    // Insert user first without token
     const [userResult] = await connection.promise().execute(
       `INSERT INTO users (f_name, l_name, email, password, role, profile_picture)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -102,6 +104,15 @@ exports.createUser = async (req, res) => {
 
     const userId = userResult.insertId;
 
+    // Generate auth token
+    const authToken = jwt.sign({ id: userId, role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    // Update user with the generated token
+    await connection.promise().execute(
+      `UPDATE users SET token = ? WHERE id = ?`,
+      [authToken, userId]
+    );
+
     // Insert blank customer profile
     await connection.promise().execute(
       `INSERT INTO customers (user_id, address, postal_code, country, phone_number)
@@ -109,25 +120,48 @@ exports.createUser = async (req, res) => {
       [userId]
     );
 
-    // Generate verification and auth token
-    const verifyToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    const authToken = jwt.sign({ id: userId, role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-    // Send verification email
-    await mailer.sendMail({
-      from: '"ToyBlox PH" <toyblox@toys.com.ph>',
-      to: email,
-      subject: 'Please Verify Account!',
-      html: `
-        <h3>Hi ${f_name},</h3>
-        <p>Welcome to ToyBlox! Please verify your account:</p>
-        <a href="http://localhost:4000/api/v1/users/verify?token=${verifyToken}">Verify Account</a>
-      `
-    });
+    // Send welcome email
+    try {
+      await mailer.sendMail({
+        from: '"ToyBlox PH" <toyblox@toys.com.ph>',
+        to: email,
+        subject: 'Welcome to ToyBlox!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+            <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #2c3e50; text-align: center; margin-bottom: 30px;">Welcome to ToyBlox! 🎉</h2>
+              
+              <p style="color: #34495e; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${f_name}</strong>,
+              </p>
+              
+              <p style="color: #34495e; font-size: 16px; line-height: 1.6;">
+                Welcome to ToyBlox! We're excited to have you join our community of toy enthusiasts.
+              </p>
+            
+              <p style="color: #7f8c8d; font-size: 14px; line-height: 1.5; margin-top: 30px;">
+                If you didn't create an account with ToyBlox, please ignore this email.
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #ecf0f1; margin: 30px 0;">
+              
+              <p style="color: #95a5a6; font-size: 12px; text-align: center;">
+                © 2025 ToyBlox PH. All rights reserved.
+              </p>
+            </div>
+          </div>
+        `
+      });
+      
+      console.log('Welcome email sent successfully to:', email);
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError);
+      // Continue with registration even if email fails
+    }
 
     // Respond with success
     return res.status(201).json({
-      message: 'User created. Please verify your email.',
+      message: 'User created successfully!',
       token: authToken,
       user: {
         id: userId,
@@ -143,6 +177,11 @@ exports.createUser = async (req, res) => {
     return res.status(500).json({ error: 'Server error while creating user.' });
   }
 };
+
+// Simple email verification function (optional - can be removed)
+// exports.verifyEmail = async (req, res) => {
+//   return res.status(200).json({ message: 'Email verification not required for this application.' });
+// };
 
 exports.updateUser = async (req, res) => {
     const { f_name, l_name, email, password } = req.body;
@@ -223,10 +262,6 @@ exports.loginUser = (req, res) => {
 
     const user = results[0];
 
-    if (!user.is_verified) {
-      return res.status(401).json({ error: 'Please verify your email before logging in.' });
-    }
-
     bcrypt.compare(password, user.password, (err, isMatch) => {
       if (!isMatch) return res.status(401).json({ error: 'Invalid password' });
 
@@ -234,47 +269,153 @@ exports.loginUser = (req, res) => {
         expiresIn: '1d'
       });
 
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          f_name: user.f_name,
-          l_name: user.l_name,
-          email: user.email,
-          role: user.role
+      // Update the token in the database
+      const updateTokenSql = 'UPDATE users SET token = ? WHERE id = ?';
+      connection.execute(updateTokenSql, [token, user.id], (updateErr) => {
+        if (updateErr) {
+          console.error('Error updating token:', updateErr);
+          return res.status(500).json({ error: 'Server error while updating token' });
         }
+
+        res.json({
+          token,
+          user: {
+            id: user.id,
+            f_name: user.f_name,
+            l_name: user.l_name,
+            email: user.email,
+            role: user.role
+          }
+        });
       });
     });
   });
 };
 
-exports.verifyEmail = (req, res) => {
-  const token = req.query.token;
-  if (!token) return res.status(400).send('Missing token');
+// Add this to your backend/controllers/user.js - replace the existing updateProfile function
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(400).send('Invalid or expired token');
+exports.updateProfile = async (req, res) => {
+  const { f_name, l_name, email, address, postal_code, country, phone_number, current_password, new_password } = req.body;
+  const userId = parseInt(req.params.id);
+  const profile_picture = req.file ? req.file.filename : null;
 
-    const userId = decoded.id;
-    const updateSql = `UPDATE users SET is_verified = TRUE WHERE id = ?`;
+  // Basic validation
+  if (!f_name || !l_name || !email) {
+    return res.status(400).json({ error: 'First name, last name, and email are required' });
+  }
 
-    connection.execute(updateSql, [userId], (err, result) => {
-      if (err) return res.status(500).send('Database error during verification');
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
 
-      const userSql = `SELECT id, f_name, l_name, email, role FROM users WHERE id = ?`;
-      connection.execute(userSql, [userId], (err2, results) => {
-        if (err2 || results.length === 0) return res.status(500).send('User fetch failed');
+  // Password validation if changing password
+  if (new_password && !current_password) {
+    return res.status(400).json({ error: 'Current password is required to set a new password' });
+  }
 
-        const user = results[0];
+  if (new_password && new_password.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+  }
 
-        const authToken = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
-          expiresIn: '1d',
-        });
+  try {
+    // Check if user exists and get current password
+    const [userCheck] = await connection.promise().execute(
+      'SELECT id, password FROM users WHERE id = ? AND deleted_at IS NULL',
+      [userId]
+    );
 
-        const redirectUrl = `http://localhost:4000/home.html?token=${authToken}&id=${user.id}&name=${encodeURIComponent(user.f_name)}`;
-        // const redirectUrl = `http://localhost:4000/profile.html?token=${authToken}&id=${user.id}&name=${encodeURIComponent(user.f_name)}`;
-        return res.redirect(redirectUrl);
-      });
+    if (userCheck.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentUser = userCheck[0];
+
+    // Verify current password if changing password
+    if (new_password) {
+      const isCurrentPasswordValid = await bcrypt.compare(current_password, currentUser.password);
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+    }
+
+    // Check if email is already taken by another user
+    const [emailCheck] = await connection.promise().execute(
+      'SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL',
+      [email, userId]
+    );
+
+    if (emailCheck.length > 0) {
+      return res.status(409).json({ error: 'Email already exists. Please use a different email.' });
+    }
+
+    // Prepare user update query
+    let updateUserSql = `
+      UPDATE users 
+      SET f_name = ?, l_name = ?, email = ?, updated_at = NOW()
+    `;
+    let userValues = [f_name, l_name, email];
+
+    // Add password to update if provided
+    if (new_password) {
+      const hashedPassword = await bcrypt.hash(new_password, 10);
+      updateUserSql += ', password = ?';
+      userValues.push(hashedPassword);
+    }
+
+    // Add profile picture to update if provided
+    if (profile_picture) {
+      updateUserSql += ', profile_picture = ?';
+      userValues.push(profile_picture);
+    }
+
+    updateUserSql += ' WHERE id = ? AND deleted_at IS NULL';
+    userValues.push(userId);
+
+    await connection.promise().execute(updateUserSql, userValues);
+
+    // Update customer table
+    const updateCustomerSql = `
+      UPDATE customers 
+      SET address = ?, postal_code = ?, country = ?, phone_number = ?
+      WHERE user_id = ?
+    `;
+    const customerValues = [
+      address || '',
+      postal_code || '',
+      country || '',
+      phone_number || '',
+      userId
+    ];
+
+    await connection.promise().execute(updateCustomerSql, customerValues);
+
+    // Fetch updated user data to return
+    const [updatedUser] = await connection.promise().execute(`
+      SELECT 
+        u.id,
+        u.f_name,
+        u.l_name,
+        u.email,
+        u.profile_picture,
+        u.role,
+        c.address,
+        c.postal_code,
+        c.country,
+        c.phone_number
+      FROM users u
+      LEFT JOIN customers c ON u.id = c.user_id
+      WHERE u.id = ? AND u.deleted_at IS NULL
+    `, [userId]);
+
+    return res.status(200).json({
+      message: new_password ? 'Profile and password updated successfully' : 'Profile updated successfully',
+      data: updatedUser[0]
     });
-  });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    return res.status(500).json({ error: 'Server error while updating profile' });
+  }
 };

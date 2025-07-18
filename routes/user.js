@@ -12,7 +12,8 @@ const {
     updateUser,
     deleteUser,
     loginUser,
-    verifyEmail
+    verifyEmail,
+    reactivateUser,
 } = userController;
 
 // 🔑 Auth routes
@@ -34,6 +35,7 @@ router.get('/users', verifyToken, authorizeRoles('admin'), getAllUsers);
 router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'), getSingleUser);
 router.put('/users/:id', verifyToken, authorizeRoles('admin', 'user'), upload.single('profile_picture'), updateUser);
 router.delete('/users/:id', verifyToken, authorizeRoles('admin'), deleteUser);
+router.put('/users/:id/reactivate', verifyToken, authorizeRoles('admin'), userController.reactivateUser);
 
 // Profile update route with file upload (using updateProfile controller)
 router.put('/users/:id/profile', verifyToken, authorizeRoles('admin', 'user'), upload.single('profile_picture'), userController.updateProfile);

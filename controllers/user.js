@@ -18,8 +18,7 @@ exports.getAllUsers = (req, res) => {
         created_at,
         updated_at,
         deleted_at
-    FROM users
-    WHERE deleted_at IS NULL`;
+    FROM users`;
 
     try {
         connection.query(sql, (err, rows, fields) => {
@@ -292,8 +291,6 @@ exports.loginUser = (req, res) => {
   });
 };
 
-// Add this to your backend/controllers/user.js - replace the existing updateProfile function
-
 exports.updateProfile = async (req, res) => {
   const { f_name, l_name, email, address, postal_code, country, phone_number, current_password, new_password } = req.body;
   const userId = parseInt(req.params.id);
@@ -419,3 +416,25 @@ exports.updateProfile = async (req, res) => {
     return res.status(500).json({ error: 'Server error while updating profile' });
   }
 };
+
+exports.reactivateUser = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await connection.promise().execute(
+      "UPDATE users SET deleted_at = NULL, updated_at = NOW() WHERE id = ? AND deleted_at IS NOT NULL",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found or already active" });
+    }
+
+    return res.status(200).json({ message: "User reactivated successfully" });
+
+  } catch (err) {
+    console.error("Error reactivating user:", err);
+    return res.status(500).json({ error: "Server error while reactivating user" });
+  }
+};
+

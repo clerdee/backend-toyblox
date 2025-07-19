@@ -1,4 +1,12 @@
-// router.get('/users', async (req, res) => {
-//   const [users] = await db.execute('SELECT id, username, email, full_name, role, created_at FROM users');
-//   res.json(users);
-// });
+// routes/admin.js
+const express = require('express');
+const router = express.Router();
+const adminController = require('../controllers/admin');
+
+// If this line throws error, comment it out temporarily
+const verifyToken = require('../middleware/auth');
+
+router.get('/stats', /* verifyToken, */ adminController.getStats);
+router.get('/top-products', /* verifyToken, */ adminController.getTopProducts);
+
+module.exports = router;

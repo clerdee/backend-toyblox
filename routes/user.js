@@ -1,3 +1,4 @@
+// backedn-toyblox/routes/user.js
 const express = require('express');
 const router = express.Router();
 const upload = require('../utils/multer');
@@ -23,16 +24,10 @@ router.post('/login', loginUser);
 // 🧾 User management
 router.post('/users', upload.single('profile_picture'), createUser); // Public Registration
 
-// router.put('/users/:id', upload.single('profile_picture'), updateUser);
-
-// 🔐 Protected routes: Only logged-in users (with appropriate roles)
-// router.delete('/users/:id', deleteUser);
-// router.get('/users', verifyToken, authorizeRoles('admin'), getAllUsers);
-// router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'), getSingleUser);
-
 // Protected: Admin/User Access
 router.get('/users', verifyToken, authorizeRoles('admin'), getAllUsers);
 router.get('/users/:id', verifyToken, authorizeRoles('admin', 'user'), getSingleUser);
+router.put('/users/:id/role', verifyToken, authorizeRoles('admin'), updateUser); 
 router.put('/users/:id', verifyToken, authorizeRoles('admin', 'user'), upload.single('profile_picture'), updateUser);
 router.delete('/users/:id', verifyToken, authorizeRoles('admin'), deleteUser);
 router.put('/users/:id/reactivate', verifyToken, authorizeRoles('admin'), userController.reactivateUser);

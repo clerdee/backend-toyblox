@@ -36,21 +36,22 @@ exports.getAllUsers = (req, res) => {
 
 exports.getSingleUser = (req, res) => {
     const sql = `
-        SELECT 
-            u.id,
-            u.f_name,
-            u.l_name,
-            u.email,
-            u.profile_picture,
-            u.role,
-            c.address,
-            c.postal_code,
-            c.country,
-            c.phone_number
-        FROM users u
-        LEFT JOIN customers c ON u.id = c.user_id
-        WHERE u.id = ? AND u.deleted_at IS NULL
-    `;
+    SELECT 
+        u.id,
+        u.f_name,
+        u.l_name,
+        u.email,
+        u.profile_picture,
+        u.role,
+        c.address,
+        c.postal_code,
+        c.country,
+        c.phone_number
+    FROM users u
+    LEFT JOIN customers c ON u.id = c.user_id
+    WHERE u.id = ?  -- 🔄 Removed 'AND u.deleted_at IS NULL'
+`;
+
     const values = [parseInt(req.params.id)];
 
     try {
@@ -177,53 +178,80 @@ exports.createUser = async (req, res) => {
   }
 };
 
+exports.updateUser = async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { role } = req.body;
+
+  if (!userId || !role) {
+    return res.status(400).json({ error: 'User ID and role are required.' });
+  }
+
+  try {
+    const [result] = await connection.promise().execute(
+      `UPDATE users 
+       SET role = ?, updated_at = NOW()
+       WHERE id = ? AND deleted_at IS NULL`,
+      [role, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found or has been deleted.' });
+    }
+
+    return res.status(200).json({ message: 'User role updated successfully' });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    return res.status(500).json({ error: 'Server error while updating role.' });
+  }
+};
+
 // Simple email verification function (optional - can be removed)
 // exports.verifyEmail = async (req, res) => {
 //   return res.status(200).json({ message: 'Email verification not required for this application.' });
 // };
 
-exports.updateUser = async (req, res) => {
-    const { f_name, l_name, email, password } = req.body;
-    const userId = parseInt(req.params.id);
-    const profile_picture = req.file ? req.file.filename : null;
-    const role = "user";
+// exports.updateUser = async (req, res) => {
+//     const { f_name, l_name, email, password } = req.body;
+//     const userId = parseInt(req.params.id);
+//     const profile_picture = req.file ? req.file.filename : null;
+//     const role = "user";
 
-    if (!f_name || !l_name || !email || !password) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
+//     if (!f_name || !l_name || !email || !password) {
+//         return res.status(400).json({ error: 'Missing required fields' });
+//     }
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const sql = `
-            UPDATE users
-            SET f_name = ?, l_name = ?, email = ?, password = ?, role = ?, profile_picture = ?, updated_at = NOW()
-            WHERE id = ? AND deleted_at IS NULL
-        `;
-        const values = [
-            f_name,
-            l_name,
-            email,
-            hashedPassword,
-            role,
-            profile_picture,
-            userId
-        ];
+//     try {
+//         const hashedPassword = await bcrypt.hash(password, 10);
+//         const sql = `
+//             UPDATE users
+//             SET f_name = ?, l_name = ?, email = ?, password = ?, role = ?, profile_picture = ?, updated_at = NOW()
+//             WHERE id = ? AND deleted_at IS NULL
+//         `;
+//         const values = [
+//             f_name,
+//             l_name,
+//             email,
+//             hashedPassword,
+//             role,
+//             profile_picture,
+//             userId
+//         ];
 
-        connection.execute(sql, values, (err, result) => {
-            if (err) {
-                console.error('Database error:', err);
-                return res.status(500).json({ error: 'Error updating user' });
-            }
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ error: 'User not found or has been deleted.' });
-            }
-            return res.status(200).json({ message: 'User updated successfully' });
-        });
-    } catch (error) {
-        console.error('Unhandled error:', error);
-        return res.status(500).json({ error: 'Unexpected error occurred.' });
-    }
-};
+//         connection.execute(sql, values, (err, result) => {
+//             if (err) {
+//                 console.error('Database error:', err);
+//                 return res.status(500).json({ error: 'Error updating user' });
+//             }
+//             if (result.affectedRows === 0) {
+//                 return res.status(404).json({ error: 'User not found or has been deleted.' });
+//             }
+//             return res.status(200).json({ message: 'User updated successfully' });
+//         });
+//     } catch (error) {
+//         console.error('Unhandled error:', error);
+//         return res.status(500).json({ error: 'Unexpected error occurred.' });
+//     }
+// };
 
 exports.deleteUser = (req, res) => {
     const userId = parseInt(req.params.id);

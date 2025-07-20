@@ -18,11 +18,15 @@ const itemRoutes = require('./routes/item');
 const userRoutes = require('./routes/user');
 const stockRoutes = require('./routes/stock');
 const adminRoutes = require('./routes/admin');
+const customerRoutes = require('./routes/customer');
+const orderRoutes = require('./routes/order');
 
 app.use('/api/v1', itemRoutes);
 app.use('/api/v1', userRoutes);
 app.use('/api/v1', stockRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/customer', customerRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Start server
 app.listen(port, () => {

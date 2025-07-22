@@ -82,7 +82,7 @@ async function sendOrderDeliveredEmail(orderId) {
     const [itemRows] = await db.promise().execute(`
       SELECT ol.*, i.description
       FROM orderline ol
-      JOIN items i ON ol.item_id = i.id
+      JOIN item i ON ol.item_id = i.item_id
       WHERE ol.order_id = ?
     `, [orderId]);
     
@@ -180,8 +180,8 @@ async function sendOrderDeliveredEmail(orderId) {
                 <tr>
                   <td>${item.description}</td>
                   <td>${item.quantity}</td>
-                  <td>$${item.price_at_order.toFixed(2)}</td>
-                  <td>$${(item.quantity * item.price_at_order).toFixed(2)}</td>
+<td>$${parseFloat(item.price_at_order || 0).toFixed(2)}</td>
+<td>$${(item.quantity * parseFloat(item.price_at_order || 0)).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>

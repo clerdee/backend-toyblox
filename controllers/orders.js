@@ -1,3 +1,4 @@
+// backend-toyblox/controllers/orders.js
 const db = require('../config/database'); 
 const mailer = require('../config/mailer');
 const { sendOrderConfirmation } = require('../utils/email');
@@ -55,12 +56,14 @@ exports.getAllOrders = async (req, res) => {
       `SELECT o.id, o.status, o.date_placed, o.created_at,
               c.id as customer_id, u.f_name, u.l_name, u.email,
               c.address, c.postal_code, c.country, c.phone_number,
+              GROUP_CONCAT(CONCAT(i.description, ' (', ol.quantity, ')') SEPARATOR ', ') as items_detail,
               SUM(ol.quantity * ol.price_at_order) as total_amount,
               COUNT(ol.id) as item_count
        FROM orderinfo o
        JOIN customers c ON o.customer_id = c.id
        JOIN users u ON c.user_id = u.id
        JOIN orderline ol ON o.id = ol.order_id
+       JOIN item i ON ol.item_id = i.item_id
        GROUP BY o.id
        ORDER BY o.date_placed DESC`
     );
@@ -95,10 +98,22 @@ exports.getOrderById = async (req, res) => {
     
     // Get order line items
     const [lineItems] = await db.promise().execute(
-      `SELECT ol.id, ol.item_id, i.name, i.image_url, ol.quantity, ol.price_at_order
-       FROM orderline ol
-       JOIN item i ON ol.item_id = i.id
-       WHERE ol.order_id = ?`,
+      `SELECT 
+  ol.id AS orderline_id,
+  ol.item_id,
+  i.description,
+  ii.image_path AS image_url,
+  ol.quantity,
+  ol.price_at_order
+FROM orderline ol
+JOIN item i ON ol.item_id = i.item_id
+LEFT JOIN (
+    SELECT item_id, MIN(image_path) AS image_path
+    FROM item_images
+    WHERE deleted_at IS NULL
+    GROUP BY item_id
+) ii ON ol.item_id = ii.item_id
+WHERE ol.order_id = ?`,
       [id]
     );
     
@@ -119,28 +134,37 @@ exports.getOrderById = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  
+
   if (!['pending', 'shipped', 'delivered'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status value' });
   }
-  
+
   try {
-    const [result] = await db.promise().execute(
-      `UPDATE orderinfo SET status = ?, updated_at = NOW() WHERE id = ?`,
-      [status, id]
-    );
-    
+    let updateQuery = `UPDATE orderinfo SET status = ?, updated_at = NOW()`;
+    const queryParams = [status];
+
+    if (status === 'shipped') {
+      updateQuery += `, date_shipped = NOW()`;
+    } else if (status === 'delivered') {
+      updateQuery += `, date_delivered = NOW()`;
+    }
+
+    updateQuery += ` WHERE id = ?`;
+    queryParams.push(id);
+
+    const [result] = await db.promise().execute(updateQuery, queryParams);
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    
-    // Send email notification based on the new status
+
+    // Send email notification
     if (status === 'shipped') {
       await require('../utils/email').sendOrderShippedEmail(id);
     } else if (status === 'delivered') {
       await require('../utils/email').sendOrderDeliveredEmail(id);
     }
-    
+
     res.status(200).json({ message: 'Order status updated successfully' });
   } catch (err) {
     console.error(`Error updating order #${id} status:`, err);

@@ -16,11 +16,30 @@ async function sendOrderConfirmation(userId, orderId) {
     to: user.email,
     subject: `🧸 Your ToyBlox Order #${orderId} Confirmation`,
     html: `
-      <h2>Thank you, ${user.f_name}!</h2>
-      <p>Your order <strong>#${orderId}</strong> has been successfully placed.</p>
-      <p>We will notify you once it's shipped.</p>
-      <p style="margin-top: 20px;">💛 ToyBlox Team</p>
-    `
+  <div style="font-family: Arial, sans-serif; background-color: #f7f7f7; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      <div style="background-color: #ffcb05; padding: 20px; text-align: center;">
+        <h1 style="margin: 0; color: #333;">🧸 ToyBlox</h1>
+      </div>
+
+      <div style="padding: 30px;">
+        <h2 style="color: #333;">Thank you, ${user.f_name}!</h2>
+        <p style="font-size: 16px; color: #555;">
+          Your order <strong>#${orderId}</strong> has been successfully placed.
+        </p>
+        <p style="font-size: 16px; color: #555;">
+          We’re getting your items ready and will notify you once it ships.
+        </p>
+
+        <p style="margin-top: 40px; font-size: 14px; color: #999;">💛 The ToyBlox Team</p>
+      </div>
+
+      <div style="background-color: #fafafa; padding: 15px; text-align: center; font-size: 12px; color: #aaa;">
+        © ${new Date().getFullYear()} ToyBlox. All rights reserved.
+      </div>
+    </div>
+  </div>
+  `
   };
 
   return transporter.sendMail(mailOptions);
@@ -52,11 +71,30 @@ async function sendOrderShippedEmail(orderId) {
     to: user.email,
     subject: `🚚 Your ToyBlox Order #${orderId} Has Been Shipped`,
     html: `
-      <h2>Good news, ${user.f_name}!</h2>
-      <p>Your order <strong>#${orderId}</strong> has been shipped.</p>
-      <p>You should receive it within 3-5 business days.</p>
-      <p style="margin-top: 20px;">💛 ToyBlox Team</p>
-    `
+  <div style="font-family: Arial, sans-serif; background-color: #f7f7f7; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      <div style="background-color: #28a745; padding: 20px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff;">🚚 Your Order is on the Way!</h1>
+      </div>
+
+      <div style="padding: 30px;">
+        <h2 style="color: #333;">Good news, ${user.f_name}!</h2>
+        <p style="font-size: 16px; color: #555;">
+          Your ToyBlox order <strong>#${orderId}</strong> has been shipped.
+        </p>
+        <p style="font-size: 16px; color: #555;">
+          You should receive it within <strong>3–5 business days</strong>.
+        </p>
+
+        <p style="margin-top: 40px; font-size: 14px; color: #999;">💛 The ToyBlox Team</p>
+      </div>
+
+      <div style="background-color: #fafafa; padding: 15px; text-align: center; font-size: 12px; color: #aaa;">
+        © ${new Date().getFullYear()} ToyBlox. All rights reserved.
+      </div>
+    </div>
+  </div>
+  `
   };
 
   return transporter.sendMail(mailOptions);
@@ -226,12 +264,33 @@ async function sendOrderDeliveredEmail(orderId) {
       to: order.email,
       subject: `🎉 Your ToyBlox Order #${orderId} Has Been Delivered`,
       html: `
-        <h2>Great news, ${order.f_name}!</h2>
-        <p>Your order <strong>#${orderId}</strong> has been delivered.</p>
-        <p>Please find attached your order receipt.</p>
-        <p>We hope you enjoy your toys!</p>
-        <p style="margin-top: 20px;">💛 ToyBlox Team</p>
-      `,
+  <div style="font-family: Arial, sans-serif; background-color: #f7f7f7; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+      <div style="background-color: #ffc107; padding: 20px; text-align: center;">
+        <h1 style="margin: 0; color: #333;">🎉 Delivered!</h1>
+      </div>
+
+      <div style="padding: 30px;">
+        <h2 style="color: #333;">Great news, ${order.f_name}!</h2>
+        <p style="font-size: 16px; color: #555;">
+          Your ToyBlox order <strong>#${orderId}</strong> has been successfully delivered.
+        </p>
+        <p style="font-size: 16px; color: #555;">
+          We've attached your official receipt for your records.
+        </p>
+        <p style="font-size: 16px; color: #555;">
+          We hope you and your loved ones enjoy your new toys!
+        </p>
+
+        <p style="margin-top: 40px; font-size: 14px; color: #999;">💛 The ToyBlox Team</p>
+      </div>
+
+      <div style="background-color: #fafafa; padding: 15px; text-align: center; font-size: 12px; color: #aaa;">
+        © ${new Date().getFullYear()} ToyBlox. All rights reserved.
+      </div>
+    </div>
+  </div>
+  `,
       attachments: [
         {
           filename: `ToyBlox-Order-${orderId}.pdf`,
